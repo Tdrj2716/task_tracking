@@ -95,3 +95,44 @@
 5. WHEN ユーザーがログアウトボタンをクリックする THEN Time Tracking App SHALL ログアウト処理を実行してログインページにリダイレクトする
 6. IF ユーザーが未ログイン状態でアプリケーションにアクセスする THEN Time Tracking App SHALL ログインページにリダイレクトする
 7. WHERE ユーザーデータ THE Time Tracking App SHALL ログインしたユーザーごとにタスクと時間記録を分離して管理する
+
+### Requirement 9: タスク階層構造
+**Objective:** As a ユーザー, I want タスクに子タスクを追加して階層化する機能, so that 大きなタスクを小さな作業単位に分割して管理できる
+
+#### Acceptance Criteria
+
+1. WHEN ユーザーがタスクに子タスクを追加する THEN Time Tracking App SHALL 親タスクの配下に子タスクを作成する
+2. WHEN ユーザーが子タスクにさらに子タスク（孫タスク）を追加する THEN Time Tracking App SHALL 子タスクの配下に孫タスクを作成する
+3. IF ユーザーが孫タスクにさらに子タスクを追加しようとする THEN Time Tracking App SHALL エラーメッセージを表示して作成を拒否する
+4. WHERE タスク階層 THE Time Tracking App SHALL 親・子・孫の最大3階層までのタスク構造を許可する
+5. WHEN ユーザーがタスク一覧を表示する THEN Time Tracking App SHALL タスクを階層構造で表示し、親タスクの展開/折りたたみを可能にする
+6. WHEN ユーザーが親タスクを削除する THEN Time Tracking App SHALL 配下の子タスク・孫タスクもすべて削除する
+7. WHEN ユーザーが時間記録を作成する際にタスクを選択する THEN Time Tracking App SHALL すべての階層のタスク（親・子・孫）を選択可能にする
+
+### Requirement 10: プロジェクト管理
+**Objective:** As a ユーザー, I want タスクをプロジェクトで分類する機能, so that 関連するタスクをまとめて管理できる
+
+#### Acceptance Criteria
+
+1. WHEN ユーザーがプロジェクトを作成する THEN Time Tracking App SHALL 新しいプロジェクトを作成してプロジェクト一覧に表示する
+2. WHEN ユーザーがタスクを作成または編集する THEN Time Tracking App SHALL プロジェクト選択ドロップダウンを表示する
+3. WHEN ユーザーがタスクにプロジェクトを設定する THEN Time Tracking App SHALL タスクを指定されたプロジェクトに関連付ける
+4. IF ユーザーがタスクにプロジェクトを設定しない THEN Time Tracking App SHALL タスクを "Inbox" プロジェクトに自動的に関連付ける
+5. WHERE タスクのプロジェクト設定 THE Time Tracking App SHALL 1つのタスクに対して1つのプロジェクトのみ設定を許可する
+6. WHEN ユーザーがプロジェクトを削除する THEN Time Tracking App SHALL 関連するタスクを "Inbox" プロジェクトに移動する
+7. WHEN ユーザーがプロジェクト別レポートを表示する THEN Time Tracking App SHALL 各プロジェクトの合計作業時間を表示する
+8. WHERE システム THE Time Tracking App SHALL "Inbox" という名前のデフォルトプロジェクトを自動作成し、削除を禁止する
+
+### Requirement 11: タグ管理
+**Objective:** As a ユーザー, I want タスクに複数のタグを設定する機能, so that タスクを柔軟に分類・フィルタリングできる
+
+#### Acceptance Criteria
+
+1. WHEN ユーザーがタグを作成する THEN Time Tracking App SHALL 新しいタグを作成してタグ一覧に表示する
+2. WHEN ユーザーがタスクを作成または編集する THEN Time Tracking App SHALL タグ選択インターフェース（マルチセレクト）を表示する
+3. WHEN ユーザーがタスクに複数のタグを設定する THEN Time Tracking App SHALL タスクに指定されたすべてのタグを関連付ける
+4. WHEN ユーザーがタスク一覧でタグフィルターを適用する THEN Time Tracking App SHALL 指定されたタグを持つタスクのみを表示する
+5. WHEN ユーザーが複数のタグでフィルターする THEN Time Tracking App SHALL すべての指定されたタグを持つタスクのみを表示する（AND条件）
+6. WHEN ユーザーがタグを削除する THEN Time Tracking App SHALL タスクからそのタグの関連付けを削除する
+7. WHERE タグ表示 THE Time Tracking App SHALL タスク一覧で各タスクに設定されたタグを表示する
+8. WHEN ユーザーがタグ別レポートを表示する THEN Time Tracking App SHALL 各タグの合計作業時間を表示する
