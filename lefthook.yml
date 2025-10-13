@@ -1,0 +1,37 @@
+# Lefthook configuration for Task Tracking project
+# https://github.com/evilmartians/lefthook
+
+pre-commit:
+  parallel: true
+  commands:
+    # Backend linting and formatting
+    backend-ruff:
+      glob: "backend/**/*.py"
+      run: cd backend && uv run ruff check {staged_files}
+
+    backend-black:
+      glob: "backend/**/*.py"
+      run: cd backend && uv run black --check {staged_files}
+
+    backend-mypy:
+      glob: "backend/**/*.py"
+      run: cd backend && uv run mypy {staged_files}
+
+    # Frontend linting and formatting
+    frontend-eslint:
+      glob: "frontend/**/*.{ts,tsx,js,jsx}"
+      run: cd frontend && pnpm eslint {staged_files}
+
+    frontend-prettier:
+      glob: "frontend/**/*.{ts,tsx,js,jsx,json,css,md}"
+      run: cd frontend && pnpm prettier --check {staged_files}
+
+pre-push:
+  commands:
+    # Backend tests
+    backend-tests:
+      run: cd backend && uv run pytest
+
+    # Frontend tests
+    frontend-tests:
+      run: cd frontend && pnpm test --run

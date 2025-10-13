@@ -1,0 +1,23 @@
+[project]
+name = "task-tracking-api"
+version = "0.1.0"
+description = "Task Time Tracking API with Django REST Framework"
+requires-python = ">=3.12"
+dependencies = [
+    "django>=5.1,<6.0",
+    "djangorestframework>=3.15,<4.0",
+    "psycopg[binary]>=3.2,<4.0",
+    "django-cors-headers>=4.5,<5.0",
+    "django-allauth[mfa]>=65.0,<66.0",
+    "dj-rest-auth>=7.0,<8.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "ruff>=0.8,<1.0",
+    "black>=24.0,<25.0",
+    "mypy>=1.13,<2.0",
+    "pytest>=8.0,<9.0",
+    "pytest-django>=4.9,<5.0",
+    "pytest-cov>=6.0,<7.0",
+]

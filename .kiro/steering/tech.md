@@ -31,11 +31,18 @@ Kiro Spec-Driven Development は、Claude Code プラットフォーム上で動
 - **ファイルシステムアクセス**: ローカルまたはクラウドストレージ
 - **Git** (推奨): バージョン管理とステアリング変更の追跡
 
+### パッケージ管理ツール
+
+- **Backend**: uv（Python パッケージ管理）
+- **Frontend**: pnpm（Node.js パッケージ管理）
+- **Git Hooks**: lefthook（pre-commit フック管理）
+
 ### セットアップ
 
 1. プロジェクトルートに `CLAUDE.md` を配置
 2. `.claude/commands/kiro/` にコマンド定義を配置
 3. `/kiro:steering` でステアリングドキュメントを初期化
+4. uv、pnpm、lefthook をインストール
 
 ## Technology Stack
 

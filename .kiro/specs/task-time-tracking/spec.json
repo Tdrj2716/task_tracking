@@ -1,23 +1,24 @@
 {
   "feature_name": "task-time-tracking",
   "created_at": "2025-10-13T13:58:00Z",
-  "updated_at": "2025-10-13T15:00:00Z",
+  "updated_at": "2025-10-13T17:00:00Z",
   "language": "ja",
-  "phase": "design-updated",
+  "phase": "tasks-generated",
   "approvals": {
     "requirements": {
       "generated": true,
-      "approved": false,
+      "approved": true,
       "note": "Requirements 9-11 added: Task hierarchy, Projects, Tags"
     },
     "design": {
       "generated": true,
-      "approved": false,
+      "approved": true,
       "note": "Data models updated: Added Project, Tag, Task hierarchy (self FK), ManyToMany Tag relationship"
     },
     "tasks": {
-      "generated": false,
-      "approved": false
+      "generated": true,
+      "approved": false,
+      "note": "37 tasks generated with Phase tests (1-4), uv/pnpm/lefthook setup, Storybook integration"
     }
   },
   "ready_for_implementation": false
