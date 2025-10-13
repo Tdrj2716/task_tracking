@@ -7,7 +7,7 @@ pre-commit:
     # Backend linting and formatting
     backend-ruff:
       glob: "backend/**/*.py"
-      run: cd backend && uv run ruff check {staged_files}
+      run: uv run ruff check --config backend/pyproject.toml -- {staged_files}
       stage_fixed: true
 
     # Frontend linting and formatting
