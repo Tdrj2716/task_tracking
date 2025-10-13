@@ -95,7 +95,7 @@
 
 ### Task 3: ユーザーモデルとプロジェクト・タグ・タスクモデルの定義
 
-**Status**: pending
+**Status**: completed
 
 **Requirement Traceability**: Requirement 1（タスク管理）、Requirement 9（タスク階層）、Requirement 10（プロジェクト管理）、Requirement 11（タグ管理）
 
