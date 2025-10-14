@@ -74,7 +74,7 @@ class Task(models.Model):
 
     # Project (user-settable for root tasks, auto-inherited for children)
     project = models.ForeignKey(
-        Project, on_delete=models.CASCADE, null=True, blank=True, related_name="tasks"
+        Project, on_delete=models.SET_NULL, null=True, blank=True, related_name="tasks"
     )
 
     # Hierarchy fields

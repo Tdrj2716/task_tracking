@@ -117,11 +117,10 @@
 1. WHEN ユーザーがプロジェクトを作成する THEN Time Tracking App SHALL 新しいプロジェクトを作成してプロジェクト一覧に表示する
 2. WHEN ユーザーがタスクを作成または編集する THEN Time Tracking App SHALL プロジェクト選択ドロップダウンを表示する
 3. WHEN ユーザーがタスクにプロジェクトを設定する THEN Time Tracking App SHALL タスクを指定されたプロジェクトに関連付ける
-4. IF ユーザーがタスクにプロジェクトを設定しない THEN Time Tracking App SHALL タスクを "Inbox" プロジェクトに自動的に関連付ける
-5. WHERE タスクのプロジェクト設定 THE Time Tracking App SHALL 1つのタスクに対して1つのプロジェクトのみ設定を許可する
-6. WHEN ユーザーがプロジェクトを削除する THEN Time Tracking App SHALL 関連するタスクを "Inbox" プロジェクトに移動する
-7. WHEN ユーザーがプロジェクト別レポートを表示する THEN Time Tracking App SHALL 各プロジェクトの合計作業時間を表示する
-8. WHERE システム THE Time Tracking App SHALL "Inbox" という名前のデフォルトプロジェクトを自動作成し、削除を禁止する
+4. IF ユーザーがタスクにプロジェクトを設定しない THEN Time Tracking App SHALL タスクの project フィールドを null とし、UI 上で "Inbox" として表示する
+5. WHERE タスクのプロジェクト設定 THE Time Tracking App SHALL 1つのタスクに対して1つのプロジェクトのみ設定を許可する（または null）
+6. WHEN ユーザーがプロジェクトを削除する THEN Time Tracking App SHALL 関連するタスクの project フィールドを null に設定する（UI 上では Inbox として表示される）
+7. WHEN ユーザーがプロジェクト別レポートを表示する THEN Time Tracking App SHALL 各プロジェクトの合計作業時間を表示する（project が null のタスクは "Inbox" として集計）
 
 ### Requirement 11: タグ管理
 **Objective:** As a ユーザー, I want タスクに複数のタグを設定する機能, so that タスクを柔軟に分類・フィルタリングできる

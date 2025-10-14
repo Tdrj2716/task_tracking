@@ -902,8 +902,6 @@ graph TB
     Task -->|M:N| Tag
     Task -->|1:N self-ref| Task
     Task -.->|optional 1:N| TimeEntry
-
-    Project -.->|has "Inbox"| Project
 ```
 
 **Core Concepts**:
@@ -915,20 +913,21 @@ graph TB
 
 **Entities**:
 - **User**: Django標準 `AbstractUser` をベースとしたユーザーモデル
-- **Project**: プロジェクト（タスクをグループ化、Inboxプロジェクトは特殊）
+- **Project**: プロジェクト（タスクをグループ化）
 - **Tag**: タグ（タスクの柔軟な分類、色付け可能）
-- **Task**: タスク（階層構造、プロジェクト所属、タグ付け）
+- **Task**: タスク（階層構造、プロジェクト所属またはnull、タグ付け）
 - **TimeEntry**: 時間記録エントリー（開始時刻、終了時刻、タスク参照、経過時間）
 - **SocialAccount**: django-allauthが管理するGoogle OAuth連携情報
 
 **Value Objects**:
 - **ActiveTimer** (フロントエンド): 実行中のタイマー状態（タスクID、開始時刻）、イミュータブル
+- **Inbox** (UI): project が null のタスクを表示するための仮想プロジェクト（データベースには存在しない）
 
 **Domain Events**:
 - `TimerStarted`: タイマーが開始された（フロントエンド）
 - `TimerStopped`: タイマーが停止され、TimeEntryが作成された
 - `TaskDeleted`: タスクが削除され、子孫タスクもすべて削除された
-- `ProjectDeleted`: プロジェクトが削除され、関連タスクがInboxプロジェクトに移動された
+- `ProjectDeleted`: プロジェクトが削除され、関連タスクの project フィールドが NULL に設定された
 - `TagDeleted`: タグが削除され、タスクからのタグ関連付けが削除された
 
 **Business Rules & Invariants**:
@@ -938,9 +937,8 @@ graph TB
 - タスク削除時、関連する時間記録の `task` フィールドは `NULL` に更新される（`SET_NULL`）
 - **タスク階層は最大3階層（親・子・孫）まで**（`Task.clean()` でバリデーション）
 - 親タスク削除時、すべての子孫タスクも削除される（`CASCADE`）
-- **各ユーザーに1つの "Inbox" プロジェクトが自動作成され、削除不可**
-- タスクにプロジェクトが設定されていない場合、自動的にInboxプロジェクトに関連付け
-- プロジェクト削除時、関連タスクはInboxプロジェクトに移動（`SET_NULL` + signal）
+- **タスクの `project` フィールドは null 許容。null の場合、UI 上で "Inbox" として表示される**
+- プロジェクト削除時、関連タスクの `project` フィールドは `NULL` に設定される（`SET_NULL`）
 - タグ名はユーザー内で一意（`UniqueConstraint`）
 - タスクは複数のタグを持てる（`ManyToManyField`）
 - ユーザーは自分のデータのみアクセス可能
@@ -976,36 +974,29 @@ class Project(models.Model):
         db_index=True
     )
     name = models.CharField(max_length=100)
-    is_inbox = models.BooleanField(default=False)  # Inboxプロジェクトフラグ
+    color = models.CharField(max_length=7, default='#B29632')  # プロジェクトカラー（Hex形式）
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         ordering = ['name']
         indexes = [
-            models.Index(fields=['user', 'name']),
-        ]
-        constraints = [
-            models.UniqueConstraint(
-                fields=['user'],
-                condition=models.Q(is_inbox=True),
-                name='unique_inbox_per_user'
-            )
+            models.Index(fields=['user', 'created_at']),
         ]
 
     def __str__(self):
-        return f"{self.name} ({self.user.username})"
+        return self.name
 ```
 
 **Indexes**:
 - Primary Key: `id`
 - Foreign Key: `user_id` (自動インデックス)
-- Composite Index: `(user_id, name)` - ユーザー別プロジェクト一覧取得用
+- Composite Index: `(user_id, created_at)` - ユーザー別プロジェクト一覧取得用
 
 **Constraints**:
 - `name`: NOT NULL, max_length=100
 - `user_id`: NOT NULL, ON DELETE CASCADE
-- `is_inbox`: ユーザーごとに1つのInboxプロジェクトのみ許可（UniqueConstraint）
+- `color`: デフォルト値 #B29632
 
 #### Model: Tag
 
