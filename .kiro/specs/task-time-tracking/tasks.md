@@ -174,7 +174,7 @@
 
 ### Task 4: TimeEntry モデルの定義
 
-**Status**: pending
+**Status**: completed
 
 **Requirement Traceability**: Requirement 2（時間記録）、Requirement 3（時間記録の編集・削除）、Requirement 4（時間記録一覧）
 
@@ -187,21 +187,30 @@
 1. `TimeEntry` モデルを定義
    - `user` ForeignKey to User (CASCADE)
    - `task` ForeignKey to Task (SET_NULL, nullable)
+   - `project` ForeignKey to Project (SET_NULL, nullable) - タスクのプロジェクトを自動継承
    - `start_time` DateTimeField
-   - `end_time` DateTimeField
-   - `duration_seconds` IntegerField
+   - `end_time` DateTimeField (nullable)
+   - `duration_seconds` IntegerField (editable=False, nullable)
    - `created_at` DateTimeField(auto_now_add=True)
-   - `save()` メソッド: duration_seconds を自動計算
+   - `clean()` メソッド: task/projectがuserに紐づいているかバリデーション
+     - taskが設定されている場合、task.user_id == user_idをチェック
+     - projectが設定されている場合、project.user_id == user_idをチェック
+   - `save()` メソッド: duration_secondsを自動計算、taskからprojectを自動設定
    - `__str__()` メソッド: タスク名（または「タスク未指定」）と duration を表示
    - Meta: ordering by start_time DESC、indexes（user+start_time、user+task+start_time）
 2. マイグレーションファイルを生成して実行
 3. Django Admin で TimeEntry を登録して動作確認
+   - TimeEntryAdminForm を作成して task/project の選択肢をユーザーでフィルタリング
+   - 既存のTimeEntry編集時: そのTimeEntryのuserに紐づくtask/projectのみ選択可能
+   - 新規TimeEntry作成時: 選択されたuserに紐づくtask/projectのみ選択可能
 
 **Acceptance Criteria**:
 
 - TimeEntry モデルがマイグレーション済み
 - `save()` で duration_seconds が自動計算される
 - タスク削除時に TimeEntry の task フィールドが NULL に更新される（SET_NULL）
+- `clean()` で task/project がユーザーに紐づいていない場合にValidationErrorが発生する
+- Django Admin で task/project の選択肢がユーザーに紐づいたものだけ表示される
 
 ---
 

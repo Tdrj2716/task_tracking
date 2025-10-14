@@ -70,6 +70,7 @@ class Task(models.Model):
 
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="tasks")
     name = models.CharField(max_length=100)
+    description = models.TextField(blank=True)
 
     # Project (user-settable for root tasks, auto-inherited for children)
     project = models.ForeignKey(
@@ -124,6 +125,18 @@ class Task(models.Model):
     def clean(self):
         """モデルレベルのバリデーション"""
         super().clean()
+
+        # Projectがuserに紐づいているかチェック
+        if self.project and self.project.user_id != self.user_id:
+            raise ValidationError(
+                {"project": "選択されたプロジェクトはこのユーザーに紐づいていません"}
+            )
+
+        # 親がuserに紐づいているかチェック
+        if self.parent and self.parent.user_id != self.user_id:
+            raise ValidationError(
+                {"parent": "選択された親タスクはこのユーザーに紐づいていません"}
+            )
 
         if self.parent:
             # 親が孫タスクの場合はエラー
@@ -194,3 +207,80 @@ class Task(models.Model):
         for descendant in descendants:
             descendant.project = self.project
             descendant.save(update_fields=["project", "updated_at"])
+
+
+class TimeEntry(models.Model):
+    """
+    Time entry model for tracking time spent on tasks
+    """
+
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="time_entries"
+    )
+    name = models.CharField(max_length=100, null=True, blank=True)
+    task = models.ForeignKey(
+        Task,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="time_entries",
+    )
+    project = models.ForeignKey(
+        Project,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="time_entries",
+    )
+    start_time = models.DateTimeField()
+    end_time = models.DateTimeField(null=True, blank=True)
+    duration_seconds = models.IntegerField(editable=False, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-start_time"]
+        indexes = [
+            models.Index(fields=["user", "start_time"]),
+            models.Index(fields=["user", "task", "start_time"]),
+        ]
+
+    def __str__(self):
+        task_name = self.name if self.name else "Untitle"
+        if self.duration_seconds is None:
+            return f"{task_name} - ongoing"
+
+        hours = self.duration_seconds // 3600
+        minutes = (self.duration_seconds % 3600) // 60
+        seconds = self.duration_seconds % 60
+        return f"{task_name} - {hours:02d}:{minutes:02d}:{seconds:02d}"
+
+    def clean(self):
+        """モデルレベルのバリデーション"""
+        super().clean()
+
+        # Taskがuserに紐づいているかチェック
+        if self.task and self.task.user_id != self.user_id:
+            raise ValidationError(
+                {"task": "選択されたタスクはこのユーザーに紐づいていません"}
+            )
+
+        # Projectがuserに紐づいているかチェック
+        if self.project and self.project.user_id != self.user_id:
+            raise ValidationError(
+                {"project": "選択されたプロジェクトはこのユーザーに紐づいていません"}
+            )
+
+    def save(self, *args, **kwargs):
+        """
+        Override save to automatically calculate duration_seconds
+        """
+        if self.start_time and self.end_time:
+            delta = self.end_time - self.start_time
+            self.duration_seconds = int(delta.total_seconds())
+        else:
+            self.duration_seconds = None
+
+        if self.task:
+            self.project = self.task.project
+            self.name = self.task.name
+        super().save(*args, **kwargs)
