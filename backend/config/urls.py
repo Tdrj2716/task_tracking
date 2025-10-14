@@ -17,6 +17,7 @@ Including another URLconf
 
 from django.contrib import admin
 from django.urls import path, include
+from api import views
 
 urlpatterns = [
     path("admin/", admin.site.urls),
@@ -29,4 +30,5 @@ urlpatterns = [
     path("accounts/", include("allauth.urls")),
     # アプリの API ルート
     path("api/", include("api.urls")),
+    path("api/unauthorized/", views.unauthorized_test, name="unauthorized-test"),
 ]
