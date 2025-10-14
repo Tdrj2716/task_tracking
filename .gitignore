@@ -37,13 +37,6 @@ dist/
 *.pyd
 .DS_Store
 
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-
 # Environment variables
 .env
 .env.local
