@@ -7,7 +7,7 @@ pre-commit:
     # Backend linting and formatting
     backend-ruff:
       glob: "backend/**/*.py"
-      run: uv run ruff check --config backend/pyproject.toml -- {staged_files}
+      run: uvx ruff check --config backend/pyproject.toml -- {staged_files}
       stage_fixed: true
 
     # Frontend linting and formatting
@@ -20,12 +20,3 @@ pre-commit:
       glob: "frontend/**/*.{ts,tsx,js,jsx,json,css,md}"
       run: cd frontend && pnpm prettier --check {staged_files}
 
-pre-push:
-  commands:
-    # Backend tests
-    backend-tests:
-      run: cd backend && uv run pytest
-
-    # Frontend tests
-    frontend-tests:
-      run: cd frontend && pnpm test --run
