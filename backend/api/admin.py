@@ -65,7 +65,7 @@ class TaskAdminForm(forms.ModelForm):
 @admin.register(Task)
 class TaskAdmin(admin.ModelAdmin):
     form = TaskAdminForm
-    list_display = ('name', 'user', 'project', 'parent', 'hierarchy', 'created_at')
-    list_filter = ('created_at', 'project', 'hierarchy')
+    list_display = ('name', 'user', 'project', 'parent', 'level', 'created_at')
+    list_filter = ('created_at', 'project', 'level')
     search_fields = ('name', 'user__username')
-    readonly_fields = ('created_at', 'updated_at', 'hierarchy')
+    readonly_fields = ('created_at', 'updated_at', 'level', 'root')

@@ -59,30 +59,39 @@ class Tag(models.Model):
 class Task(models.Model):
     """
     Task model supporting hierarchical structure (parent-child-grandchild)
-    Maximum depth: 3 levels (parent, child, grandchild)
-    """
+    Maximum depth: 3 levels (level 0: parent, level 1: child, level 2: grandchild)
 
-    HIERARCHY_CHOICES = [
-        ("parent", "Parent"),
-        ("child", "Child"),
-        ("grandchild", "Grandchild"),
-    ]
+    Key fields:
+    - parent: Direct parent task (null for root tasks)
+    - root: Root task of the hierarchy (null for root tasks)
+    - level: Hierarchy level (0=parent, 1=child, 2=grandchild)
+    - project: Project association (user-settable for root tasks only, auto-inherited for children)
+    """
 
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="tasks")
     name = models.CharField(max_length=100)
-    hierarchy = models.CharField(
-        max_length=20, choices=HIERARCHY_CHOICES, default="parent"
-    )
+
+    # Project (user-settable for root tasks, auto-inherited for children)
     project = models.ForeignKey(
         Project, on_delete=models.CASCADE, null=True, blank=True, related_name="tasks"
     )
+
+    # Hierarchy fields
     parent = models.ForeignKey(
+        "self", on_delete=models.CASCADE, null=True, blank=True, related_name="children"
+    )
+
+    root = models.ForeignKey(
         "self",
-        on_delete=models.SET_NULL,
+        on_delete=models.CASCADE,
         null=True,
         blank=True,
-        related_name="children",
+        related_name="all_descendants",
+        editable=False,
     )
+
+    level = models.PositiveSmallIntegerField(default=0, editable=False)
+
     tags = models.ManyToManyField(Tag, related_name="tasks", blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -93,70 +102,95 @@ class Task(models.Model):
             models.Index(fields=["user", "created_at"]),
             models.Index(fields=["user", "project"]),
             models.Index(fields=["parent"]),
+            models.Index(fields=["root", "level"]),
+        ]
+        constraints = [
+            models.CheckConstraint(
+                check=models.Q(level__lte=2), name="task_max_level_2"
+            )
         ]
 
     def __str__(self):
-        hierarchy_indent = {"parent": "", "child": "  ", "grandchild": "    "}
-        return f"{hierarchy_indent.get(self.hierarchy, '')}{self.name}"
+        indent = "  " * self.level
+        return f"{indent}{self.name}"
+
+    def get_all_descendants(self):
+        """全ての子孫タスク（子+孫）"""
+        descendants = list(self.children.all())
+        for child in self.children.all():
+            descendants.extend(child.children.all())
+        return descendants
 
     def clean(self):
-        """
-        Validate hierarchy based on parent's hierarchy
-        """
+        """モデルレベルのバリデーション"""
+        super().clean()
+
         if self.parent:
-            # Set hierarchy based on parent
-            if self.parent.hierarchy == "parent":
-                self.hierarchy = "child"
-            elif self.parent.hierarchy == "child":
-                self.hierarchy = "grandchild"
-            elif self.parent.hierarchy == "grandchild":
-                raise ValidationError(
-                    "タスクは最大3階層までです。孫タスク（grandchild）に子タスクを追加することはできません。"
-                )
-            # Inherit project from parent task
-            self.project = self.parent.project
-        else:
-            # No parent means this is a parent task
-            self.hierarchy = "parent"
+            # 親が孫タスクの場合はエラー
+            if self.parent.level >= 2:
+                raise ValidationError({"parent": "孫タスクは子タスクを持てません"})
+
+            # 親と異なるプロジェクトが設定されている場合は警告
+            if self.project_id and self.parent.root:
+                expected_project = self.parent.root.project_id
+                if expected_project and self.project_id != expected_project:
+                    raise ValidationError(
+                        {
+                            "project": "サブタスクのプロジェクトはルートタスクから自動的に設定されます"
+                        }
+                    )
 
     def save(self, *args, **kwargs):
         """
-        Override save to call full_clean for validation and auto-set hierarchy
+        Override save to automatically set level, root, and project
         Also propagate project changes to all descendant tasks
         """
-        # Check if project has changed (only for existing tasks)
-        project_changed = False
-        if self.pk:
-            try:
-                old_task = Task.objects.get(pk=self.pk)
-                project_changed = old_task.project != self.project
-            except Task.DoesNotExist:
-                pass
+        # 親が設定されている場合
+        if self.parent:
+            # レベルを計算
+            self.level = self.parent.level + 1
 
-        self.full_clean()
+            # 最大深度チェック
+            if self.level > 2:
+                raise ValidationError("タスクの階層は最大3レベル（親、子、孫）までです")
+
+            # ルートタスクを設定
+            self.root = self.parent.root if self.parent.root else self.parent
+
+            # プロジェクトをルートから継承（ユーザー設定を上書き）
+            self.project = self.root.project
+
+            # 循環参照チェック
+            self._check_circular_reference()
+        else:
+            # ルートタスクの場合
+            self.level = 0
+            self.root = None
+            # projectはユーザーが設定したものを使用
+
         super().save(*args, **kwargs)
 
-        # If project changed, update all descendant tasks
-        if project_changed:
+        # 子孫タスクのプロジェクトも更新（ルートタスクのみ）
+        if self.pk and self.level == 0:
             self._update_descendants_project()
 
-    def _update_descendants_project(self):
-        """
-        Update project for all descendant tasks when parent's project changes
-        """
-        for child in self.children.all():
-            child.project = self.project
-            # Use update_fields to avoid triggering full save logic and infinite recursion
-            Task.objects.filter(pk=child.pk).update(project=self.project)
-            # Recursively update grandchildren
-            child._update_descendants_project()
+    def _check_circular_reference(self):
+        """循環参照を防ぐ"""
+        if not self.pk:
+            return
 
-    def get_all_children(self):
-        """
-        Recursively get all descendant tasks
-        Returns: QuerySet of all child and grandchild tasks
-        """
-        children = list(self.children.all())
-        for child in list(children):
-            children.extend(child.get_all_children())
-        return children
+        current = self.parent
+        visited = {self.pk}
+
+        while current:
+            if current.pk in visited:
+                raise ValidationError("循環参照が検出されました")
+            visited.add(current.pk)
+            current = current.parent
+
+    def _update_descendants_project(self):
+        """全ての子孫タスクのプロジェクトを更新"""
+        descendants = self.get_all_descendants()
+        for descendant in descendants:
+            descendant.project = self.project
+            descendant.save(update_fields=["project", "updated_at"])

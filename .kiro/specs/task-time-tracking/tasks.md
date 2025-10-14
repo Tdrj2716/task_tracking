@@ -106,41 +106,69 @@
 **Implementation**:
 
 1. `User` モデル（Django AbstractUser を継承）を定義
+   - `settings.py` に `AUTH_USER_MODEL = "api.User"` を追加
 2. `Project` モデルを定義
    - `user` ForeignKey (CASCADE)
    - `name` CharField(max_length=100)
-   - `is_inbox` BooleanField(default=False)
+   - `color` CharField(max_length=7, default='#B29632') - カラーコード（16進数）
    - `created_at`, `updated_at` DateTimeField
-   - UniqueConstraint で各ユーザー1つのInboxを保証
    - Meta: ordering, indexes
 3. `Tag` モデルを定義
    - `user` ForeignKey (CASCADE)
    - `name` CharField(max_length=50)
-   - `color` CharField(max_length=7, default='#gray')
    - `created_at` DateTimeField
    - UniqueConstraint で (user, name) の一意性を保証
    - Meta: ordering, indexes
-4. `Task` モデルを定義
-   - `user` ForeignKey (CASCADE)
-   - `name` CharField(max_length=100)
-   - `project` ForeignKey to Project (SET_NULL, nullable)
-   - `parent` ForeignKey to self (CASCADE, nullable)
-   - `tags` ManyToManyField to Tag
-   - `created_at`, `updated_at` DateTimeField
-   - `get_depth()` メソッド: 階層の深さを計算（0=ルート、1=子、2=孫）
-   - `clean()` メソッド: 3階層制限のバリデーション
-   - `save()` メソッド: `full_clean()` を呼び出してバリデーション
-   - `get_all_children()` メソッド: すべての子孫タスクを再帰的に取得
-   - Meta: ordering, indexes（user+created_at、user+project、parent）
-5. マイグレーションファイルを生成して実行
-6. Django Admin でモデルを登録して動作確認
+4. `Task` モデルを定義（階層構造対応）
+   - 基本フィールド:
+     - `user` ForeignKey (CASCADE)
+     - `name` CharField(max_length=100)
+     - `project` ForeignKey to Project (CASCADE, null=True, blank=True)
+     - `tags` ManyToManyField to Tag
+     - `created_at`, `updated_at` DateTimeField
+   - 階層構造フィールド:
+     - `parent` ForeignKey to self (CASCADE, null=True, blank=True, related_name='children')
+     - `root` ForeignKey to self (CASCADE, null=True, blank=True, related_name='all_descendants', editable=False)
+     - `level` PositiveSmallIntegerField (0=parent, 1=child, 2=grandchild, editable=False)
+   - Meta:
+     - ordering: ["-created_at"]
+     - indexes: user+created_at, user+project, parent, root+level
+     - constraints: CheckConstraint(level <= 2)
+   - メソッド:
+     - `__str__()`: レベルに応じてインデントされたタスク名を返す
+     - `get_all_descendants()`: すべての子孫タスク（子+孫）をリストで返す
+       - 実装: 子タスクをリスト化し、各子タスクの子（孫）も含める
+     - `clean()`: モデルレベルのバリデーション
+       - 親が孫タスク（level >= 2）の場合はエラー
+       - 子孫タスクに親と異なるプロジェクトが設定されている場合はエラー
+     - `save()`: level、root、projectの自動設定と子孫への伝播
+       - 親設定時: level=parent.level+1、最大深度チェック（level > 2でエラー）
+       - root設定: parent.root または parent自身
+       - project継承: root.projectを自動設定
+       - 循環参照チェック: `_check_circular_reference()`を呼び出し
+       - ルートタスク（level=0）のsave後: 全子孫のprojectを更新
+     - `_check_circular_reference()`: 循環参照を防ぐ
+       - 親を辿って同じタスクが現れないかチェック
+     - `_update_descendants_project()`: 全子孫タスクのprojectを更新
+       - 実装: `get_all_descendants()`で全子孫を取得し、各子孫のprojectを更新
+       - `save(update_fields=["project", "updated_at"])`を使用して無限再帰を防止
+   - 階層構造のロジック:
+     - ルートタスク（parent=None）: level=0, root=None, projectはユーザーが設定
+     - 子/孫タスク（parent設定あり）: level=parent.level+1, root=親のroot or 親自身, project=rootのprojectを自動継承
+     - ルートタスクのproject変更時、`_update_descendants_project()`により全子孫のprojectも自動更新
+   - 新規タスク作成時: 選択された user に基づいて動的にフィルタリング
+6. マイグレーションファイルを生成して実行
+7. Django Admin でモデルを登録して動作確認
 
 **Acceptance Criteria**:
 
 - すべてのモデルがマイグレーション済み
 - Django Admin でモデルの CRUD 操作が可能
-- Task の `get_depth()` が正しく階層レベルを返す
+- Task の `hierarchy` が親タスクに基づいて自動設定される
 - Task の `clean()` が3階層を超えるタスクを拒否する
+- 親タスクが設定されたとき、子タスクのプロジェクトが親と同じになる
+- タスクのプロジェクトが変更されたとき、すべての子孫タスクのプロジェクトも更新される
+- Django Admin で parent、project、tags の選択肢がユーザーに紐づいたものだけ表示される
 
 ---
 
