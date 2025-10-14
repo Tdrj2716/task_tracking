@@ -22,6 +22,11 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     # DRF のログイン/ログアウト (Browsable API 用)
     path("api-auth/", include("rest_framework.urls")),
+    # dj-rest-auth endpoints
+    path("api/auth/", include("dj_rest_auth.urls")),
+    path("api/auth/registration/", include("dj_rest_auth.registration.urls")),
+    # django-allauth endpoints (Google OAuth)
+    path("accounts/", include("allauth.urls")),
     # アプリの API ルート
     path("api/", include("api.urls")),
 ]
