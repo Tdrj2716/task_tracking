@@ -657,7 +657,7 @@
 
 ### Task 17: Axios API クライアントの実装
 
-**Status**: pending
+**Status**: completed
 
 **Requirement Traceability**: 全要件（API 通信のため）
 
@@ -668,20 +668,44 @@
 **Implementation**:
 
 1. `src/services/apiClient.ts` を作成
-2. Axios インスタンスを作成
-   - baseURL: `import.meta.env.VITE_API_URL || 'http://localhost:8000'`
-   - headers: `Content-Type: application/json`
-3. リクエストインターセプターを実装
+   - Axios インスタンスを作成
+     - baseURL: `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api`
+     - headers: `Content-Type: application/json`
+     - timeout: 10000ms（10秒）
+2. リクエストインターセプターを実装
    - localStorage から authToken を取得
-   - `Authorization: Token ${token}` ヘッダーを付与
-4. レスポンスインターセプターを実装
-   - 401 Unauthorized の場合、localStorage から authToken を削除し、ログインページへリダイレクト
+   - `Authorization: Token ${token}` ヘッダーを自動付与
+3. レスポンスインターセプターを実装
+   - 成功レスポンスはそのまま返す
+   - 401 Unauthorized の場合:
+     - localStorage から authToken を削除
+     - ログインページへリダイレクト（ログインページ以外の場合）
    - エラーメッセージを統一形式で処理
+     - status, message, data, originalError を含むオブジェクトを返す
+4. `.env` ファイルを作成
+   - `VITE_API_URL=http://localhost:8000` を設定
+5. 動作確認用に `App.tsx` を修正
+   - ヘルスチェックエンドポイント（`/api/health/`）にアクセスするボタンを実装
+   - レスポンス表示とエラーハンドリングを実装
+
+**Test Results**:
+
+- ✓ バックエンド（`http://localhost:8000`）が正常に起動
+- ✓ フロントエンド（`http://localhost:5173`）が正常に起動
+- ✓ `curl` コマンドで `/api/health/` にアクセスし、`{"status":"ok"}` が返ってくることを確認
+- ✓ フロントエンドから Axios 経由でバックエンド API にアクセス可能
 
 **Acceptance Criteria**:
 
-- API リクエストに自動的に認証トークンが付与される
-- 401 エラー時にログインページへリダイレクトされる
+- ✓ API リクエストに自動的に認証トークンが付与される（実装済み）
+- ✓ 401 エラー時にログインページへリダイレクトされる（実装済み）
+- ✓ `/api/health/` エンドポイントから `{"status":"ok"}` が返ってくる（確認済み）
+
+**Files Modified**:
+
+- `frontend/src/services/apiClient.ts`: Axios API クライアント実装
+- `frontend/.env`: 環境変数設定
+- `frontend/src/App.tsx`: 動作確認用 UI 実装
 
 ---
 

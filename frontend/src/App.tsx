@@ -2,32 +2,80 @@ import "./App.css";
 
 import { useState } from "react";
 
-import viteLogo from "/vite.svg";
-
-import reactLogo from "./assets/react.svg";
+import apiClient from "./services/apiClient";
 
 function App() {
-  const [count, setCount] = useState(0);
+  const [healthStatus, setHealthStatus] = useState<string>("");
+  const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string>("");
+
+  const checkHealth = async () => {
+    setLoading(true);
+    setError("");
+    setHealthStatus("");
+
+    try {
+      const response = await apiClient.get("/health/");
+      setHealthStatus(JSON.stringify(response.data));
+    } catch (err: unknown) {
+      if (typeof err === "object" && err !== null && "message" in err) {
+        setError((err as { message: string }).message);
+      } else {
+        setError("Unknown error occurred");
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
+    <div style={{ padding: "2rem" }}>
+      <h1>Task Time Tracking - API Test</h1>
+      <div style={{ marginTop: "2rem" }}>
+        <button
+          onClick={checkHealth}
+          disabled={loading}
+          style={{
+            padding: "0.5rem 1rem",
+            fontSize: "1rem",
+            cursor: loading ? "not-allowed" : "pointer",
+          }}
+        >
+          {loading ? "Loading..." : "Check API Health"}
+        </button>
       </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>count is {count}</button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">Click on the Vite and React logos to learn more</p>
-    </>
+
+      {healthStatus && (
+        <div style={{ marginTop: "1rem" }}>
+          <h2>Success:</h2>
+          <pre
+            style={{
+              background: "#f0f0f0",
+              padding: "1rem",
+              borderRadius: "4px",
+            }}
+          >
+            {healthStatus}
+          </pre>
+        </div>
+      )}
+
+      {error && (
+        <div style={{ marginTop: "1rem" }}>
+          <h2>Error:</h2>
+          <pre
+            style={{
+              background: "#fee",
+              padding: "1rem",
+              borderRadius: "4px",
+              color: "red",
+            }}
+          >
+            {error}
+          </pre>
+        </div>
+      )}
+    </div>
   );
 }
 
