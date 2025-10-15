@@ -627,7 +627,7 @@
 
 ### Task 16: Storybook のセットアップ
 
-**Status**: pending
+**Status**: completed
 
 **Requirement Traceability**: Requirement 6（ユーザーインターフェース）
 
