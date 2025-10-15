@@ -11,9 +11,10 @@ pre-commit:
       stage_fixed: true
 
     # Frontend linting and formatting
-    frontend-format:
+    frontend-eslint:
       glob: "frontend/**/*.{ts,tsx,js,jsx}"
-      run: pnpm --prefix frontend lint:fix {staged_files}
+      root: "frontend/"
+      run: pnpm exec eslint --fix {staged_files}
       stage_fixed: true
 
 
