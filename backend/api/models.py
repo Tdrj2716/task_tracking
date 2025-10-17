@@ -66,6 +66,8 @@ class Task(models.Model):
     - root: Root task of the hierarchy (null for root tasks)
     - level: Hierarchy level (0=parent, 1=child, 2=grandchild)
     - project: Project association (user-settable for root tasks only, auto-inherited for children)
+    - estimate_minutes: Estimated work time in minutes (user-settable)
+    - duration_seconds: Actual completed work time in seconds (auto-calculated from completed TimeEntries)
     """
 
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="tasks")
@@ -92,6 +94,19 @@ class Task(models.Model):
     )
 
     level = models.PositiveSmallIntegerField(default=0, editable=False)
+
+    # Time tracking fields
+    estimate_minutes = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        help_text="タスクの見積もり作業時間(分)",
+    )
+
+    duration_seconds = models.IntegerField(
+        default=0,
+        editable=False,
+        help_text="実際の累計作業時間(秒) - 完了したTime Entryの合計",
+    )
 
     tags = models.ManyToManyField(Tag, related_name="tasks", blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -121,6 +136,56 @@ class Task(models.Model):
         for child in self.children.all():
             descendants.extend(child.children.all())
         return descendants
+
+    def get_all_ancestors(self):
+        """全ての先祖タスク（parent, grandparent）をリストで返す"""
+        ancestors = []
+        current = self.parent
+        while current:
+            ancestors.append(current)
+            current = current.parent
+        return ancestors
+
+    def get_completed_duration_seconds(self):
+        """
+        完了したTime Entryの累計時間(秒)を取得
+        自タスク + 子孫タスクのTime Entryの合計
+        """
+        # 自タスク + 子孫タスクのIDリスト
+        task_ids = [self.id]
+        task_ids.extend([d.id for d in self.get_all_descendants()])
+
+        # 完了したTime Entryの合計
+        result = TimeEntry.objects.filter(
+            task_id__in=task_ids, end_time__isnull=False  # 完了したもののみ
+        ).aggregate(total=models.Sum("duration_seconds"))
+        return result["total"] or 0
+
+    def get_current_duration_seconds(self):
+        """
+        進行中のTime Entryを含む現在の累計時間(秒)
+        完了分(duration_seconds) + 進行中のエントリの経過時間
+        """
+        from django.utils import timezone
+
+        completed = self.duration_seconds
+
+        # 自タスク + 子孫タスクのIDリスト
+        task_ids = [self.id]
+        task_ids.extend([d.id for d in self.get_all_descendants()])
+
+        # 進行中のエントリを取得
+        ongoing_entries = TimeEntry.objects.filter(
+            task_id__in=task_ids, end_time__isnull=True
+        )
+
+        ongoing_duration = 0
+        now = timezone.now()
+        for entry in ongoing_entries:
+            delta = now - entry.start_time
+            ongoing_duration += int(delta.total_seconds())
+
+        return completed + ongoing_duration
 
     def clean(self):
         """モデルレベルのバリデーション"""
@@ -283,4 +348,23 @@ class TimeEntry(models.Model):
         if self.task:
             self.project = self.task.project
             self.name = self.task.name
+
         super().save(*args, **kwargs)
+
+        # Time Entryが完了した場合、関連Taskのduration_secondsを更新
+        if self.task and self.end_time:
+            self._update_task_duration()
+
+    def _update_task_duration(self):
+        """
+        関連Taskとその先祖タスクのduration_secondsを更新
+        完了したTime Entryの合計を再計算して保存
+        """
+        # 直接のタスクを更新
+        self.task.duration_seconds = self.task.get_completed_duration_seconds()
+        self.task.save(update_fields=["duration_seconds", "updated_at"])
+
+        # 先祖タスク全体も更新
+        for ancestor in self.task.get_all_ancestors():
+            ancestor.duration_seconds = ancestor.get_completed_duration_seconds()
+            ancestor.save(update_fields=["duration_seconds", "updated_at"])

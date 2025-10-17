@@ -126,6 +126,9 @@
      - `project` ForeignKey to Project (CASCADE, null=True, blank=True)
      - `tags` ManyToManyField to Tag
      - `created_at`, `updated_at` DateTimeField
+   - 時間トラッキングフィールド:
+     - `estimate_minutes` PositiveIntegerField (null=True, blank=True) - 見積もり作業時間(分)
+     - `duration_seconds` IntegerField (default=0, editable=False) - 実際の累計作業時間(秒)
    - 階層構造フィールド:
      - `parent` ForeignKey to self (CASCADE, null=True, blank=True, related_name='children')
      - `root` ForeignKey to self (CASCADE, null=True, blank=True, related_name='all_descendants', editable=False)
@@ -138,6 +141,11 @@
      - `__str__()`: レベルに応じてインデントされたタスク名を返す
      - `get_all_descendants()`: すべての子孫タスク（子+孫）をリストで返す
        - 実装: 子タスクをリスト化し、各子タスクの子（孫）も含める
+     - `get_all_ancestors()`: すべての先祖タスク（parent, grandparent）をリストで返す
+     - `get_completed_duration_seconds()`: 完了したTime Entryの累計時間(秒)を取得
+       - 自タスク + 子孫タスクのTime Entryの合計
+     - `get_current_duration_seconds()`: 進行中のTime Entryを含む現在の累計時間(秒)
+       - 完了分(duration_seconds) + 進行中のエントリの経過時間
      - `clean()`: モデルレベルのバリデーション
        - 親が孫タスク（level >= 2）の場合はエラー
        - 子孫タスクに親と異なるプロジェクトが設定されている場合はエラー
@@ -195,7 +203,10 @@
    - `clean()` メソッド: task/projectがuserに紐づいているかバリデーション
      - taskが設定されている場合、task.user_id == user_idをチェック
      - projectが設定されている場合、project.user_id == user_idをチェック
-   - `save()` メソッド: duration_secondsを自動計算、taskからprojectを自動設定
+   - `save()` メソッド: duration_secondsを自動計算、taskからprojectを自動設定、完了時にTaskのduration_secondsを更新
+     - end_timeが設定されている場合、_update_task_duration()を呼び出し
+   - `_update_task_duration()` メソッド: 関連Taskとその先祖タスクのduration_secondsを更新
+     - 直接のタスクとその全ての先祖タスクのduration_secondsを再計算
    - `__str__()` メソッド: タスク名（または「タスク未指定」）と duration を表示
    - Meta: ordering by start_time DESC、indexes（user+start_time、user+task+start_time）
 2. マイグレーションファイルを生成して実行

@@ -352,3 +352,251 @@ class DatabaseConstraintTestCase(TestCase):
         # project フィールドが NULL になっていることを確認
         self.assertIsNone(task.project)
         self.assertIsNone(task.project_id)
+
+
+class TaskDurationTrackingTestCase(TestCase):
+    """Task の estimate_minutes と duration_seconds のテスト"""
+
+    def setUp(self):
+        """テスト用のユーザーとプロジェクトを作成"""
+        self.user = User.objects.create_user(
+            username="testuser", email="test@example.com", password="testpass123"
+        )
+        self.project = Project.objects.create(
+            user=self.user, name="テストプロジェクト"
+        )
+
+    def test_task_estimate_minutes_can_be_set(self):
+        """タスクに estimate_minutes を設定できることを確認"""
+        task = Task.objects.create(
+            user=self.user,
+            name="見積もりありタスク",
+            project=self.project,
+            estimate_minutes=120,
+        )
+
+        self.assertEqual(task.estimate_minutes, 120)
+
+    def test_task_estimate_minutes_can_be_null(self):
+        """タスクの estimate_minutes が null 許容であることを確認"""
+        task = Task.objects.create(
+            user=self.user, name="見積もりなしタスク", project=self.project
+        )
+
+        self.assertIsNone(task.estimate_minutes)
+
+    def test_task_duration_seconds_default_zero(self):
+        """タスクの duration_seconds がデフォルトで 0 であることを確認"""
+        task = Task.objects.create(
+            user=self.user, name="新規タスク", project=self.project
+        )
+
+        self.assertEqual(task.duration_seconds, 0)
+
+    def test_get_completed_duration_seconds_single_entry(self):
+        """単一の完了した TimeEntry の duration_seconds が計算されることを確認"""
+        task = Task.objects.create(
+            user=self.user, name="タスク", project=self.project
+        )
+
+        start_time = timezone.now()
+        end_time = start_time + timedelta(hours=1)
+
+        TimeEntry.objects.create(
+            user=self.user, task=task, start_time=start_time, end_time=end_time
+        )
+
+        # TimeEntry 保存時に task.duration_seconds が更新される
+        task.refresh_from_db()
+        self.assertEqual(task.duration_seconds, 3600)
+
+    def test_get_completed_duration_seconds_multiple_entries(self):
+        """複数の完了した TimeEntry の duration_seconds が合計されることを確認"""
+        task = Task.objects.create(
+            user=self.user, name="タスク", project=self.project
+        )
+
+        start_time = timezone.now()
+
+        # 1時間のエントリ
+        TimeEntry.objects.create(
+            user=self.user,
+            task=task,
+            start_time=start_time,
+            end_time=start_time + timedelta(hours=1),
+        )
+
+        # 30分のエントリ
+        TimeEntry.objects.create(
+            user=self.user,
+            task=task,
+            start_time=start_time + timedelta(hours=2),
+            end_time=start_time + timedelta(hours=2, minutes=30),
+        )
+
+        task.refresh_from_db()
+        expected_seconds = 3600 + 1800  # 1時間 + 30分
+        self.assertEqual(task.duration_seconds, expected_seconds)
+
+    def test_duration_seconds_excludes_ongoing_entries(self):
+        """進行中の TimeEntry は duration_seconds に含まれないことを確認"""
+        task = Task.objects.create(
+            user=self.user, name="タスク", project=self.project
+        )
+
+        start_time = timezone.now()
+
+        # 完了したエントリ
+        TimeEntry.objects.create(
+            user=self.user,
+            task=task,
+            start_time=start_time,
+            end_time=start_time + timedelta(hours=1),
+        )
+
+        # 進行中のエントリ (end_time が null)
+        TimeEntry.objects.create(
+            user=self.user, task=task, start_time=start_time + timedelta(hours=2)
+        )
+
+        task.refresh_from_db()
+        # 完了した1時間のみがカウントされる
+        self.assertEqual(task.duration_seconds, 3600)
+
+    def test_get_current_duration_seconds_includes_ongoing(self):
+        """get_current_duration_seconds が進行中のエントリを含むことを確認"""
+        task = Task.objects.create(
+            user=self.user, name="タスク", project=self.project
+        )
+
+        start_time = timezone.now() - timedelta(hours=2)
+
+        # 完了したエントリ
+        TimeEntry.objects.create(
+            user=self.user,
+            task=task,
+            start_time=start_time,
+            end_time=start_time + timedelta(hours=1),
+        )
+
+        # 進行中のエントリ (1時間前に開始)
+        ongoing_start = timezone.now() - timedelta(hours=1)
+        TimeEntry.objects.create(user=self.user, task=task, start_time=ongoing_start)
+
+        task.refresh_from_db()
+        current_duration = task.get_current_duration_seconds()
+
+        # 完了分(3600秒) + 進行中(約3600秒)
+        # 進行中の時間は厳密ではないため、範囲でチェック
+        self.assertGreaterEqual(current_duration, 7000)  # 少なくとも約2時間
+        self.assertLessEqual(current_duration, 7400)  # 最大約2時間6分
+
+    def test_duration_includes_child_tasks(self):
+        """子タスクの TimeEntry も親タスクの duration に含まれることを確認"""
+        parent = Task.objects.create(
+            user=self.user, name="親タスク", project=self.project
+        )
+        child = Task.objects.create(user=self.user, name="子タスク", parent=parent)
+
+        start_time = timezone.now()
+
+        # 親タスクに1時間
+        TimeEntry.objects.create(
+            user=self.user,
+            task=parent,
+            start_time=start_time,
+            end_time=start_time + timedelta(hours=1),
+        )
+
+        # 子タスクに30分
+        TimeEntry.objects.create(
+            user=self.user,
+            task=child,
+            start_time=start_time + timedelta(hours=2),
+            end_time=start_time + timedelta(hours=2, minutes=30),
+        )
+
+        parent.refresh_from_db()
+        child.refresh_from_db()
+
+        # 子タスクは自分の30分のみ
+        self.assertEqual(child.duration_seconds, 1800)
+
+        # 親タスクは子タスクの分も含む
+        expected_parent_seconds = 3600 + 1800  # 1時間 + 30分
+        self.assertEqual(parent.duration_seconds, expected_parent_seconds)
+
+    def test_duration_includes_grandchild_tasks(self):
+        """孫タスクの TimeEntry も親・ルートタスクの duration に含まれることを確認"""
+        parent = Task.objects.create(
+            user=self.user, name="親タスク", project=self.project
+        )
+        child = Task.objects.create(user=self.user, name="子タスク", parent=parent)
+        grandchild = Task.objects.create(
+            user=self.user, name="孫タスク", parent=child
+        )
+
+        start_time = timezone.now()
+
+        # 親タスクに1時間
+        TimeEntry.objects.create(
+            user=self.user,
+            task=parent,
+            start_time=start_time,
+            end_time=start_time + timedelta(hours=1),
+        )
+
+        # 子タスクに30分
+        TimeEntry.objects.create(
+            user=self.user,
+            task=child,
+            start_time=start_time + timedelta(hours=2),
+            end_time=start_time + timedelta(hours=2, minutes=30),
+        )
+
+        # 孫タスクに15分
+        TimeEntry.objects.create(
+            user=self.user,
+            task=grandchild,
+            start_time=start_time + timedelta(hours=3),
+            end_time=start_time + timedelta(hours=3, minutes=15),
+        )
+
+        parent.refresh_from_db()
+        child.refresh_from_db()
+        grandchild.refresh_from_db()
+
+        # 孫タスクは自分の15分のみ
+        self.assertEqual(grandchild.duration_seconds, 900)
+
+        # 子タスクは自分の30分 + 孫の15分
+        self.assertEqual(child.duration_seconds, 1800 + 900)
+
+        # 親タスクはすべての合計
+        expected_parent_seconds = 3600 + 1800 + 900  # 1時間 + 30分 + 15分
+        self.assertEqual(parent.duration_seconds, expected_parent_seconds)
+
+    def test_get_all_ancestors(self):
+        """get_all_ancestors が先祖タスクをすべて返すことを確認"""
+        parent = Task.objects.create(
+            user=self.user, name="親タスク", project=self.project
+        )
+        child = Task.objects.create(user=self.user, name="子タスク", parent=parent)
+        grandchild = Task.objects.create(
+            user=self.user, name="孫タスク", parent=child
+        )
+
+        # 孫タスクの先祖は [子, 親]
+        ancestors = grandchild.get_all_ancestors()
+        self.assertEqual(len(ancestors), 2)
+        self.assertEqual(ancestors[0], child)
+        self.assertEqual(ancestors[1], parent)
+
+        # 子タスクの先祖は [親]
+        ancestors = child.get_all_ancestors()
+        self.assertEqual(len(ancestors), 1)
+        self.assertEqual(ancestors[0], parent)
+
+        # 親タスクの先祖は []
+        ancestors = parent.get_all_ancestors()
+        self.assertEqual(len(ancestors), 0)

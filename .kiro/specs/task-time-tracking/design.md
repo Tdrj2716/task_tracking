@@ -183,6 +183,8 @@ graph TB
 class Task(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='tasks')
     name = models.CharField(max_length=100)
+    estimate_minutes = models.PositiveIntegerField(null=True, blank=True)  # 見積もり作業時間(分)
+    duration_seconds = models.IntegerField(default=0, editable=False)  # 実際の累計作業時間(秒)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -1056,6 +1058,16 @@ class Task(models.Model):
         db_index=True
     )
     name = models.CharField(max_length=100)
+    estimate_minutes = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        help_text="タスクの見積もり作業時間(分)"
+    )
+    duration_seconds = models.IntegerField(
+        default=0,
+        editable=False,
+        help_text="実際の累計作業時間(秒) - 完了したTime Entryの合計"
+    )
     project = models.ForeignKey(
         'Project',
         on_delete=models.SET_NULL,

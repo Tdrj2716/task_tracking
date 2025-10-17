@@ -69,10 +69,19 @@ class TaskAdminForm(forms.ModelForm):
 @admin.register(Task)
 class TaskAdmin(admin.ModelAdmin):
     form = TaskAdminForm
-    list_display = ("name", "user", "project", "parent", "level", "created_at")
+    list_display = (
+        "name",
+        "user",
+        "project",
+        "parent",
+        "level",
+        "estimate_minutes",
+        "duration_seconds",
+        "created_at",
+    )
     list_filter = ("created_at", "project", "level")
     search_fields = ("name", "user__username")
-    readonly_fields = ("created_at", "updated_at", "level", "root")
+    readonly_fields = ("created_at", "updated_at", "level", "root", "duration_seconds")
 
 
 class TimeEntryAdminForm(forms.ModelForm):
