@@ -108,7 +108,7 @@ DATABASES = {
 }
 
 # テスト時は SQLite を使用（PostgreSQL の CREATEDB 権限が不要）
-if 'test' in sys.argv:
+if "test" in sys.argv:
     DATABASES = {
         "default": {
             "ENGINE": "django.db.backends.sqlite3",
@@ -187,8 +187,14 @@ AUTHENTICATION_BACKENDS = [
 
 # Django Allauth Settings
 ACCOUNT_EMAIL_VERIFICATION = "none"
-ACCOUNT_LOGIN_METHODS = {"email"}
-ACCOUNT_SIGNUP_FIELDS = ["email*", "password1*", "password2*"]
+
+# New-style allauth configuration (v1.0+)
+ACCOUNT_LOGIN_METHODS = {
+    "username": {"enabled": True},
+    "email": {"enabled": True},
+}
+
+ACCOUNT_SIGNUP_FIELDS = ["username*", "email*"]
 
 # Social Account Providers
 SOCIALACCOUNT_PROVIDERS = {
