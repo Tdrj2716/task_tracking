@@ -816,6 +816,73 @@
    - state: isRunning, elapsedSeconds, activeTimer
    - actions: updateElapsed, setActiveTimer, setIsRunning, reset
 
+**Testing**:
+
+1. **テスト環境のセットアップ**
+   - Vitest + jsdom@24.0.0 + MSW@2.11.5 を使用
+   - `vitest.config.ts`: Vitestの設定ファイル作成
+   - `src/test/setup.ts`: テストセットアップ（MSW、localStorage mock）
+   - `src/test/mocks/handlers.ts`: APIモックハンドラー（GET/POST/PATCH/DELETE）
+   - `src/test/mocks/server.ts`: MSWサーバー設定
+
+2. **authStoreのテスト** (`src/stores/__tests__/authStore.test.ts`)
+   - ✓ 初期化時にnullユーザーとトークン
+   - ✓ ログイン時にトークンをlocalStorageに保存
+   - ✓ ログアウト時にトークンをlocalStorageから削除
+   - ✓ ユーザー情報の取得成功
+   - ✓ フェッチ中のisLoading状態管理
+   - ✓ localStorageからのauthToken復元
+
+3. **taskStoreのテスト** (`src/stores/__tests__/taskStore.test.ts`)
+   - ✓ 空の初期レコード
+   - ✓ タスクの取得成功
+   - ✓ 新しいタスクの作成
+   - ✓ タスクの更新
+   - ✓ タスクの削除
+   - ✓ プロジェクトでのフィルタリング
+   - ✓ タグでのフィルタリング
+   - ✓ フィルターのクリア
+   - ✓ 空配列でのfilterByTags
+   - ✓ フェッチ中のisLoading状態管理
+
+4. **timeEntryStoreのテスト** (`src/stores/__tests__/timeEntryStore.test.ts`)
+   - ✓ 空の初期レコード
+   - ✓ 時間記録の取得成功
+   - ✓ 新しい時間記録の作成と先頭への追加
+   - ✓ 時間記録の更新
+   - ✓ 時間記録の削除
+   - ✓ デフォルト制限での最近の記録取得
+   - ✓ カスタム制限での最近の記録取得
+   - ✓ 作成時にrecentEntriesを10個に制限
+   - ✓ 更新時のrecentEntriesの更新
+   - ✓ 削除時のrecordsとrecentEntriesからの削除
+   - ✓ フェッチ中のisLoading状態管理
+
+5. **timerStoreのテスト** (`src/stores/__tests__/timerStore.test.ts`)
+   - ✓ デフォルト値での初期化
+   - ✓ 経過秒数の更新
+   - ✓ アクティブタイマーの設定
+   - ✓ nullへのアクティブタイマー設定と実行停止
+   - ✓ isRunningの設定
+   - ✓ タイマー状態のリセット
+   - ✓ タスクなしタイマーの処理
+   - ✓ 経過秒数の複数回更新
+   - ✓ 実行中に新しいタイマーの開始を許可
+
+6. **テストスクリプトの追加** (`package.json`)
+   - `pnpm test`: ウォッチモードでテスト実行
+   - `pnpm test:ui`: UI付きでテスト実行
+   - `pnpm test:run`: 1回だけテスト実行
+   - `pnpm test:coverage`: カバレッジレポート付きでテスト実行
+
+**Test Results**:
+
+✅ **全36テストが成功**
+- authStore: 6テスト成功
+- taskStore: 10テスト成功
+- timeEntryStore: 11テスト成功
+- timerStore: 9テスト成功
+
 **Acceptance Criteria**:
 
 - ✓ 各ストアが正しく状態管理を行う
@@ -823,6 +890,8 @@
 - ✓ taskStoreにフィルタリング機能が実装されている
 - ✓ timeEntryStoreにrecentEntries機能が実装されている
 - ✓ createCrudStoreを活用してコードの重複を削減している
+- ✓ 全ストアに対して包括的なユニットテストが実装され、すべて成功している
+- ✓ MSWを使用してAPIリクエストをモック化し、統合テストが可能
 
 **Files Created/Modified**:
 
@@ -833,6 +902,15 @@
 - `frontend/src/stores/taskStore.ts`: タスク管理 + フィルタリング機能（新規作成）
 - `frontend/src/stores/timeEntryStore.ts`: 時間記録管理 + 最新記録機能（新規作成）
 - `frontend/src/stores/timerStore.ts`: タイマー状態管理（新規作成）
+- `frontend/vitest.config.ts`: Vitest設定ファイル（新規作成）
+- `frontend/src/test/setup.ts`: テストセットアップ（新規作成）
+- `frontend/src/test/mocks/handlers.ts`: APIモックハンドラー（新規作成）
+- `frontend/src/test/mocks/server.ts`: MSWサーバー（新規作成）
+- `frontend/src/stores/__tests__/authStore.test.ts`: authStoreテスト（新規作成）
+- `frontend/src/stores/__tests__/taskStore.test.ts`: taskStoreテスト（新規作成）
+- `frontend/src/stores/__tests__/timeEntryStore.test.ts`: timeEntryStoreテスト（新規作成）
+- `frontend/src/stores/__tests__/timerStore.test.ts`: timerStoreテスト（新規作成）
+- `frontend/package.json`: テストスクリプト追加、テストライブラリ追加
 
 ---
 
