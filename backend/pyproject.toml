@@ -24,3 +24,10 @@ dev = [
     "pytest-django>=4.9,<5.0",
     "pytest-cov>=6.0,<7.0",
 ]
+
+[dependency-groups]
+dev = [
+    "pytest-django>=4.11.1",
+    "requests>=2.32.5",
+    "python-postman>=0.1.3",
+]

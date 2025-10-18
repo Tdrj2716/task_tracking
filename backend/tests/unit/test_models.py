@@ -16,7 +16,7 @@ from django.db import IntegrityError
 from django.test import TestCase
 from django.utils import timezone
 
-from .models import Project, Tag, Task, TimeEntry
+from api.models import Project, Tag, Task, TimeEntry
 
 User = get_user_model()
 
