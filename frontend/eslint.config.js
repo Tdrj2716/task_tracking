@@ -34,6 +34,9 @@ export default [
       // Import順序の自動整理
       "simple-import-sort/imports": "error",
       "simple-import-sort/exports": "error",
+      // import type を使う
+      "@typescript-eslint/consistent-type-imports": "error",
+      "@typescript-eslint/no-import-type-side-effects": "error",
     },
   },
   prettierConfig,
