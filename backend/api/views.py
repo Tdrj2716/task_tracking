@@ -2,8 +2,8 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework import status, viewsets
-from .models import Project
-from .serializers import ProjectSerializer
+from .models import Project, Tag
+from .serializers import ProjectSerializer, TagSerializer
 
 
 @api_view(["GET"])
@@ -40,5 +40,25 @@ class ProjectViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         """
         Automatically set the user when creating a project
+        """
+        serializer.save(user=self.request.user)
+
+
+class TagViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for Tag CRUD operations
+    """
+
+    serializer_class = TagSerializer
+
+    def get_queryset(self):
+        """
+        Filter tags by the current user
+        """
+        return Tag.objects.filter(user=self.request.user)
+
+    def perform_create(self, serializer):
+        """
+        Automatically set the user when creating a tag
         """
         serializer.save(user=self.request.user)

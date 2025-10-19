@@ -39,6 +39,7 @@ class PostmanAPITestCase(LiveServerTestCase):
             "base_url": self.live_server_url,
             "auth_token": self.token.key,
             "test_project_id": "",
+            "test_tag_id": "",
         }
 
     def test_run_postman_collection(self):
@@ -168,8 +169,27 @@ class PostmanAPITestCase(LiveServerTestCase):
         elif "verify project deleted" in request_name:
             self.assertEqual(response.status_code, 404)
 
+        elif "get all tags" in request_name:
+            self.assertEqual(response.status_code, 200)
+            data = response.json
+            self.assertIn("results", data)
+
+        elif "create tag" in request_name and "duplicate" not in request_name:
+            self.assertEqual(response.status_code, 201)
+            data = response.json
+            self.assertIn("id", data)
+            self.assertIn("name", data)
+            # タグIDを環境変数に保存
+            context.environment_variables["test_tag_id"] = str(data["id"])
+
+        elif "delete tag" in request_name:
+            self.assertEqual(response.status_code, 204)
+
         elif "unauthorized" in request_name:
             self.assertEqual(response.status_code, 401)
+
+        elif "duplicate" in request_name and "should fail" in request_name:
+            self.assertEqual(response.status_code, 400)
 
         else:
             # デフォルトは2xx系のステータスコードを期待

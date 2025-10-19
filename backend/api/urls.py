@@ -4,6 +4,7 @@ from . import views
 
 router = DefaultRouter()
 router.register(r"projects", views.ProjectViewSet, basename="project")
+router.register(r"tags", views.TagViewSet, basename="tag")
 
 urlpatterns = [
     path("health/", views.health, name="health"),

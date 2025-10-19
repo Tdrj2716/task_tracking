@@ -1014,7 +1014,6 @@ class Tag(models.Model):
         db_index=True
     )
     name = models.CharField(max_length=50)
-    color = models.CharField(max_length=7, default='#gray')  # Hex color code
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
