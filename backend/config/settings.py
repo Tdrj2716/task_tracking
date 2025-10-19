@@ -57,6 +57,8 @@ INSTALLED_APPS = [
     "dj_rest_auth.registration",
     # CORS
     "corsheaders",
+    # django-filter
+    "django_filters",
     # local apps
     "api",
 ]

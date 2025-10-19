@@ -2,8 +2,10 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework import status, viewsets
-from .models import Project, Tag
-from .serializers import ProjectSerializer, TagSerializer
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework.filters import OrderingFilter
+from .models import Project, Tag, Task
+from .serializers import ProjectSerializer, TagSerializer, TaskSerializer
 
 
 @api_view(["GET"])
@@ -60,5 +62,33 @@ class TagViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         """
         Automatically set the user when creating a tag
+        """
+        serializer.save(user=self.request.user)
+
+
+class TaskViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for Task CRUD operations
+    """
+
+    serializer_class = TaskSerializer
+    filter_backends = [DjangoFilterBackend, OrderingFilter]
+    filterset_fields = ["project", "parent", "tags"]
+    ordering_fields = ["created_at", "name"]
+    ordering = ["-created_at"]
+
+    def get_queryset(self):
+        """
+        Filter tasks by the current user with optimized queries
+        """
+        return (
+            Task.objects.filter(user=self.request.user)
+            .select_related("project", "parent", "root")
+            .prefetch_related("tags")
+        )
+
+    def perform_create(self, serializer):
+        """
+        Automatically set the user when creating a task
         """
         serializer.save(user=self.request.user)

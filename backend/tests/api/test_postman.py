@@ -39,7 +39,11 @@ class PostmanAPITestCase(LiveServerTestCase):
             "base_url": self.live_server_url,
             "auth_token": self.token.key,
             "test_project_id": "",
+            "test_task_project_id": "",
             "test_tag_id": "",
+            "test_root_task_id": "",
+            "test_child_task_id": "",
+            "test_grandchild_task_id": "",
         }
 
     def test_run_postman_collection(self):
@@ -151,7 +155,12 @@ class PostmanAPITestCase(LiveServerTestCase):
             self.assertIn("id", data)
             self.assertIn("name", data)
             # プロジェクトIDを環境変数に保存
-            context.environment_variables["test_project_id"] = str(data["id"])
+            if "task" in request_name.lower():
+                # Task用のプロジェクト
+                context.environment_variables["test_task_project_id"] = str(data["id"])
+            else:
+                # 通常のプロジェクト
+                context.environment_variables["test_project_id"] = str(data["id"])
 
         elif "get single project" in request_name:
             self.assertEqual(response.status_code, 200)
@@ -183,6 +192,44 @@ class PostmanAPITestCase(LiveServerTestCase):
             context.environment_variables["test_tag_id"] = str(data["id"])
 
         elif "delete tag" in request_name:
+            self.assertEqual(response.status_code, 204)
+
+        elif "get all tasks" in request_name:
+            self.assertEqual(response.status_code, 200)
+            data = response.json
+            self.assertIn("results", data)
+
+        elif "create root task" in request_name:
+            if response.status_code != 201:
+                # デバッグ: エラー内容を表示
+                print(f"\n  DEBUG: Response body: {response.text}")
+            self.assertEqual(response.status_code, 201)
+            data = response.json
+            self.assertIn("id", data)
+            self.assertIn("name", data)
+            self.assertEqual(data["level"], 0)
+            # ルートタスクIDを環境変数に保存
+            context.environment_variables["test_root_task_id"] = str(data["id"])
+
+        elif "create child task" in request_name:
+            self.assertEqual(response.status_code, 201)
+            data = response.json
+            self.assertIn("id", data)
+            self.assertEqual(data["level"], 1)
+            # 子タスクIDを環境変数に保存
+            context.environment_variables["test_child_task_id"] = str(data["id"])
+
+        elif "create grandchild task" in request_name:
+            self.assertEqual(response.status_code, 201)
+            data = response.json
+            self.assertEqual(data["level"], 2)
+            # 孫タスクIDを環境変数に保存
+            context.environment_variables["test_grandchild_task_id"] = str(data["id"])
+
+        elif "great-grandchild" in request_name and "should fail" in request_name:
+            self.assertEqual(response.status_code, 400)
+
+        elif "delete root task" in request_name or "delete task" in request_name:
             self.assertEqual(response.status_code, 204)
 
         elif "unauthorized" in request_name:

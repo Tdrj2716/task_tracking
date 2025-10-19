@@ -452,7 +452,7 @@
 
 ### Task 10: Task ViewSet とシリアライザの実装
 
-**Status**: pending
+**Status**: completed
 
 **Requirement Traceability**: Requirement 1（タスク管理）、Requirement 9（タスク階層）
 
@@ -462,29 +462,69 @@
 
 **Implementation**:
 
-1. `TaskSerializer` を作成
-   - fields: ['id', 'name', 'project', 'parent', 'tags', 'created_at', 'updated_at']
-   - read_only_fields: ['id', 'created_at', 'updated_at']
-   - `project_name` フィールド（read_only）: project.name を表示
-   - `parent_name` フィールド（read_only）: parent.name を表示
-   - `tag_names` フィールド（read_only）: tags の name リストを表示
-   - `depth` フィールド（read_only）: `get_depth()` を表示
-   - バリデーション: name は必須、max_length=100
-2. `TaskViewSet` を作成
-   - `get_queryset()`: `Task.objects.filter(user=request.user).select_related('project', 'parent').prefetch_related('tags')`
+1. `TaskSerializer` を作成（`backend/api/serializers.py`）
+   - fields: ['id', 'name', 'description', 'project', 'parent', 'tags', 'level', 'root', 'estimate_minutes', 'duration_seconds', 'created_at', 'updated_at']
+   - read_only_fields: ['id', 'level', 'root', 'duration_seconds', 'created_at', 'updated_at']
+   - `project_name` フィールド（read_only）: project.name を表示（null許容）
+   - `parent_name` フィールド（read_only）: parent.name を表示（null許容）
+   - `tag_names` フィールド（SerializerMethodField）: tags の name リストを表示
+   - `__init__()`: project, parent, tags のqueryset をユーザーでフィルタリング
+   - `validate_name()`: name は必須、空文字チェック
+   - `validate()`: 親タスクとプロジェクトのユーザー紐付けチェック、階層制約チェック（level ≤ 2）
+2. `TaskViewSet` を作成（`backend/api/views.py`）
+   - `get_queryset()`: `Task.objects.filter(user=request.user).select_related('project', 'parent', 'root').prefetch_related('tags')`
    - `perform_create()`: user を自動設定（project は null 許容）
    - フィルタリング: DjangoFilterBackend で project、parent、tags によるフィルタリング
-   - ソート: OrderingFilter で created_at、name によるソート
-3. URLs に `/api/tasks/` を追加
+   - ソート: OrderingFilter で created_at、name によるソート（デフォルト: `-created_at`）
+3. URLs に `/api/tasks/` を追加（`backend/api/urls.py`）
+   - `router.register(r"tasks", views.TaskViewSet, basename="task")`
+4. django-filter パッケージを追加
+   - `uv add django-filter`
+   - INSTALLED_APPS に `django_filters` を追加
+5. Postman APIテストを追加（`backend/tests/api/postman/Task_Tracking_API.postman_collection.json`）
+   - Create Project for Tasks: タスクテスト用プロジェクト作成、test_task_project_id 保存
+   - Get All Tasks: 200 OK、results配列確認
+   - Create Root Task: 201 Created、level=0、test_root_task_id 保存
+   - Create Child Task: 201 Created、level=1、test_child_task_id 保存
+   - Create Grandchild Task: 201 Created、level=2、test_grandchild_task_id 保存
+   - Create Great-Grandchild Task (Should Fail): 400 Bad Request、階層制約エラー確認
+   - Delete Root Task: 204 No Content（子孫タスクもカスケード削除）
+6. テストランナーを更新（`backend/tests/api/test_postman.py`）
+   - test_task_project_id 環境変数を初期化
+   - Create Project で task を含むリクエストは test_task_project_id に保存
+   - Task作成時に各レベルのIDを環境変数に保存
+   - Task関連のバリデーションロジック追加
+
+**Test Results**:
+
+✅ **全20テストが成功**（Postman APIテスト）
+- ✓ Create Project for Tasks - 201 Created
+- ✓ Get All Tasks - 200 OK
+- ✓ Create Root Task - 201 Created（level=0）
+- ✓ Create Child Task - 201 Created（level=1）
+- ✓ Create Grandchild Task - 201 Created（level=2）
+- ✓ Create Great-Grandchild Task - 400 Bad Request（階層制約）
+- ✓ Delete Root Task - 204 No Content
 
 **Acceptance Criteria**:
 
-- GET `/api/tasks/` でユーザーのタスク一覧を取得できる
-- POST `/api/tasks/` で新しいタスクを作成できる
-- タスク作成時に project は null 許容（null の場合、フロントエンドで Inbox として表示）
-- 親タスクを指定してサブタスクを作成できる
-- 3階層を超えるタスクを作成しようとすると 400 エラーを返す
-- タスクに複数のタグを設定できる
+- ✓ GET `/api/tasks/` でユーザーのタスク一覧を取得できる
+- ✓ POST `/api/tasks/` で新しいタスクを作成できる
+- ✓ タスク作成時に project は null 許容（null の場合、フロントエンドで Inbox として表示）
+- ✓ 親タスクを指定してサブタスクを作成できる（最大3階層: level 0, 1, 2）
+- ✓ 3階層を超えるタスクを作成しようとすると 400 エラーを返す
+- ✓ タスクに複数のタグを設定できる
+- ✓ DELETE `/api/tasks/{id}/` でタスクを削除でき、子孫タスクもカスケード削除される
+
+**Files Modified**:
+
+- `backend/api/serializers.py`: TaskSerializer実装
+- `backend/api/views.py`: TaskViewSet実装（DjangoFilterBackend, OrderingFilter）
+- `backend/api/urls.py`: /api/tasks/エンドポイント追加
+- `backend/config/settings.py`: django_filters をINSTALLED_APPSに追加
+- `backend/tests/api/postman/Task_Tracking_API.postman_collection.json`: Taskテスト追加（7テスト）
+- `backend/tests/api/test_postman.py`: Task環境変数更新、バリデーション追加
+- `pyproject.toml`: django-filter==25.2 追加
 
 ---
 
